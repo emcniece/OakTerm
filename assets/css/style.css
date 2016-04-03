@@ -91,6 +91,7 @@ body, html{ background: #252830; color:#fff; }
   background-color: #1f8dd6;
   color: white;
 }
+.event-time     { color: #848484; }
 .text_stdin     { color: #808080;  }
 .text_stdout    { color: #ffffff; }
 .text_stderr    { color: #d9534f;   }

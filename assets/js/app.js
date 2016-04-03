@@ -100,10 +100,19 @@ $(function() {
 
   function update_devices(devices){
     console.log('Devices: ', devices);
+    var pastCurrentDevice = localStorage.getItem("current_device");
     $("#deviceIDs").html('');
+
     _.each(devices.body, function(item, idx) {
-      $("#deviceIDs").append('<option id="'+item.id+'">'+item.id+'</option>');
+      var name = "";
+      var selected = (pastCurrentDevice == item.id) ? 'selected="selected"' : '';
+
+      if(item.name) name += item.name+' ';
+      name += '('+item.id.slice(-6)+')';
+
+      $("#deviceIDs").append('<option '+selected+' value="'+item.id+'">'+name+'</option>');
     });
+
     current_device=$("#deviceIDs").val()
   }
 
@@ -113,18 +122,18 @@ $(function() {
 
   function update_devinfo(data){
     if(data.body.connected){
-      $("#devstatus").html('online');
+      $("#devstatus").removeClass('label-danger').addClass('label-success').html('online');
+    } else{
+      $("#devstatus").removeClass('label-success').addClass('label-danger').html('offline');
     }
-    else{
-      $("#devstatus").html('offline');
-    }
-    console.log('update_devinfo(): connected='+data.body.connected);
-    console.log('update_devinfo(): variables='+data.body.variables);
-    console.log('update_devinfo(): functions='+data.body.functions);
 
+    console.log('update_devinfo(): ', { connected: data.body.connected, variables: data.body.variables, functions: data.body.functions });
+
+    $("#vars").html('');
     _.each(data.body.variables, function(item, idx) {
-      $("#vars").append('<option id="'+item.name+'">'+item.name+'</option>');
+      $("#vars").append('<option val="'+idx+'">'+idx+' ('+item+')</option>');
     });
+
     $("#funcs").html('');
     _.each(data.body.functions, function(item, idx) {
       $("#funcs").append('<option id="'+item+'">'+item+'</option>');
@@ -137,8 +146,9 @@ $(function() {
 
   function display_event(stream){
     stream.on('event', function(event) {
-      //console.log("Event: " + event);
-      var event_class="";
+      //console.log("Event: ", event);
+      var event_class="", htmlstr, eventTime;
+
       switch(event.name){
         case 'oak/devices/stderr': // Typo in OakSystem.ino
         case 'oak/device/stderr':
@@ -170,10 +180,17 @@ $(function() {
             event.data='<no data>';
           }
       }
+
+      eventTime = '<span class="event-time">['+ (new Date(event.published_at)).toTimeString().split(' (')[0]+']</span>';
       htmlstr=(event.data + '').replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br>$2');
-      htmlstr='<div class="'+event_class+'">'+prestr+htmlstr+poststr+'</div>';
+      htmlstr='<div class="'+event_class+'">'+eventTime+' '+prestr+htmlstr+poststr+'</div>';
+
+      //console.log( new Date(event.published_at).toISOString() )
+      if((window.innerHeight + window.scrollY) >= document.body.offsetHeight){
+        $("html, body").animate({ scrollTop: $(document).height() }, 150);
+      }
+
       $("#content").append(htmlstr);
-      $("html, body").animate({ scrollTop: $(document).height() }, 1000);
     });
   }
 
@@ -216,9 +233,12 @@ $(function() {
   });
 
   $("#deviceIDs").on('change',function(){
-    current_device=this.value
+    current_device=this.value;
+    localStorage.setItem("current_device", current_device);
     get_devinfo()
-      .then(update_devinfo);
+      .then(update_devinfo)
+      .then(subscribe_events)
+      .then(display_event);
   });
 
   setInterval(function(){
